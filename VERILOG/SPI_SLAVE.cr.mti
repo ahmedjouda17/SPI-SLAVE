@@ -1,0 +1,22 @@
+{C:/Users/ahmds/Desktop/ASS KW/Final Projects/2/VERILOG/TOP.v} {1 {vlog -work work -vopt -stats=none {C:/Users/ahmds/Desktop/ASS KW/Final Projects/2/VERILOG/TOP.v}
+QuestaSim-64 vlog 2021.1 Compiler 2021.01 Jan 19 2021
+-- Compiling module TOP
+
+Top level modules:
+	TOP
+
+} {} {}} {C:/Users/ahmds/Desktop/ASS KW/Final Projects/2/VERILOG/SPI.v} {1 {vlog -work work -vopt -stats=none {C:/Users/ahmds/Desktop/ASS KW/Final Projects/2/VERILOG/SPI.v}
+QuestaSim-64 vlog 2021.1 Compiler 2021.01 Jan 19 2021
+-- Compiling module SPI
+
+Top level modules:
+	SPI
+
+} {} {}} {C:/Users/ahmds/Desktop/ASS KW/Final Projects/2/VERILOG/RAM.v} {1 {vlog -work work -vopt -stats=none {C:/Users/ahmds/Desktop/ASS KW/Final Projects/2/VERILOG/RAM.v}
+QuestaSim-64 vlog 2021.1 Compiler 2021.01 Jan 19 2021
+-- Compiling module RAM
+
+Top level modules:
+	RAM
+
+} {} {}}
