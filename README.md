@@ -3,6 +3,26 @@
 ## 📖 Project Overview
 This repository contains the complete Register-Transfer Level (RTL) design and verification of an SPI Slave interface integrated with a Single-Port RAM. The system enables an external SPI Master device to write data into memory and read data back through a standard SPI communication protocol. The design was implemented in Verilog and verified using Questasim, Questa Linting, and Xilinx Vivado.
 
+## 🔄 Communication Flow & Transaction Sequence
+
+To understand how the **SPI Master** interacts with our **SPI Slave and Single-Port RAM** architecture, every full transaction follows a strict 2-phase command protocol over the serial lines (`MOSI`, `MISO`, `SS_n`, `CLK`):
+
+### 1️⃣ Write Operation Sequence (Storing Data)
+* **Step 1 (Write Address):** 
+  * The master pulls `SS_n` low and sends the command code `00` followed by the target memory address.
+  * The SPI Slave decodes `00`, latches the incoming address, and sets the internal write flagز
+* **Step 2 (Write Data):** 
+  * The master initiates a new frame with command code `01` followed by the 8-bit data payload.
+  * The SPI Slave receives the data (`rx_data`) via SIPO (Serial-In Parallel-Out) and writes it directly into the Single-Port RAM at the previously latched address
+
+### 2️⃣ Read Operation Sequence (Retrieving Data)
+* **Step 1 (Read Address):** 
+  * The master sends command code `10` followed by the target memory address.
+  * The SPI Slave decodes the command and latches the read address into the system[cite: 2].
+* **Step 2 (Read Data):** 
+  * The master sends command code `11`.
+  * The RAM retrieves the stored byte from the latched address, passes it to the SPI Slave (`tx_data`), and the PISO (Parallel-In Serial-Out) shift register shifts the data bit-by-bit back to the master through the `MISO` line[cite: 2].
+
 ## 🏗️ Architecture & Modules
 The project is divided into three main modules:
 * 🧩 **SPI Slave:** The core communication block that handles protocol timing (MOSI, MISO, SS_n, CLK), decodes commands, and drives the RAM. It is controlled by a Finite State Machine (FSM) with states: IDLE, CHK_CMD, WRITE, READ_ADD, and READ_DATA.
