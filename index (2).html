@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPI Slave + Single-Port RAM — Interactive Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --panel:#121722;
+    --panel-2:#0E1219;
+    --line:#232B3A;
+    --line-strong:#34405A;
+    --text:#D6DCE8;
+    --text-dim:#7C8AA5;
+    --amber:#E8A33D;
+    --amber-dim:#5A421E;
+    --teal:#3FC7B8;
+    --teal-dim:#1D4A46;
+    --red:#E2534D;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 20px 80px;}
+  header{margin-bottom:32px;}
+  header .kicker{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);letter-spacing:.04em;margin:0 0 8px;}
+  header h1{font-size:26px;font-weight:600;margin:0 0 10px;line-height:1.3;}
+  header p{font-size:14px;color:var(--text-dim);max-width:640px;line-height:1.6;margin:0;}
+
+  .layout{display:grid;grid-template-columns:1fr;gap:24px;}
+  @media(min-width:860px){.layout{grid-template-columns:1.1fr 0.9fr;}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;}
+  .panel h2{font-size:13px;font-weight:600;color:var(--text-dim);text-transform:none;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+
+  svg{width:100%;height:auto;display:block;}
+  .box{fill:var(--panel-2);stroke:var(--line-strong);stroke-width:1;}
+  .lbl{font-family:'JetBrains Mono',monospace;font-size:12px;fill:var(--text);}
+  .lbl-dim{font-family:'JetBrains Mono',monospace;font-size:10px;fill:var(--text-dim);}
+  line.wire{stroke:var(--line-strong);stroke-width:1.5;transition:stroke .25s, stroke-width .25s;}
+  line.wire.active{stroke:var(--amber);stroke-width:2.5;}
+
+  .cmd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+  .cmd-btn{font-family:'JetBrains Mono',monospace;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:12px 10px;text-align:left;cursor:pointer;transition:border-color .15s,background .15s;}
+  .cmd-btn:hover{border-color:var(--line-strong);}
+  .cmd-btn.selected{border-color:var(--amber);background:var(--amber-dim);}
+  .cmd-btn .code{font-size:15px;font-weight:700;color:var(--amber);}
+  .cmd-btn .name{display:block;font-size:11px;color:var(--text-dim);margin-top:2px;font-family:'Inter',sans-serif;}
+
+  .field-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .field-row label{font-size:12px;color:var(--text-dim);min-width:82px;}
+  input[type=number]{flex:1;font-family:'JetBrains Mono',monospace;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:9px 10px;font-size:14px;}
+  input[type=number]:focus{outline:none;border-color:var(--amber);}
+
+  .send-btn{width:100%;background:var(--amber);color:#241a0a;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .send-btn:hover{opacity:.9;}
+  .send-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .stream{margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--teal);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:20px;word-break:break-all;}
+
+  .regs{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:12px;}
+  .regs div span{display:block;color:var(--text-dim);font-family:'Inter',sans-serif;font-size:11px;margin-bottom:2px;}
+
+  .log{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;max-height:220px;overflow-y:auto;color:var(--text-dim);}
+  .log .entry{color:var(--text);margin-bottom:2px;}
+  .log .entry .t{color:var(--amber);}
+
+  .ram-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin-top:8px;}
+  .cell{aspect-ratio:1;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);transition:background .3s,border-color .3s,color .3s;}
+  .cell.hit{background:var(--teal-dim);border-color:var(--teal);color:var(--teal);}
+  .ram-note{font-size:11px;color:var(--text-dim);margin-top:10px;}
+
+  footer{margin-top:32px;font-size:12px;color:var(--text-dim);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="kicker">SPI_SLAVE + SINGLE_PORT_RAM // RTL SIMULATOR</p>
+    <h1>Drive the SPI Slave the way the testbench does</h1>
+    <p>Pick a command, give it an address or a data byte, and send it — the state machine below reacts exactly like the Verilog design: two command bits select the operation, the RAM latches or returns a byte, and a read shows up on MISO.</p>
+  </header>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Block diagram</h2>
+      <svg viewBox="0 0 480 220">
+        <rect class="box" x="40" y="30" width="170" height="150" rx="8"/>
+        <text class="lbl" x="125" y="52" text-anchor="middle" font-weight="700">SPI SLAVE</text>
+        <text id="fsm-text" class="lbl-dim" x="125" y="168" text-anchor="middle">IDLE</text>
+
+        <rect class="box" x="280" y="30" width="160" height="150" rx="8"/>
+        <text class="lbl" x="360" y="52" text-anchor="middle" font-weight="700">RAM</text>
+        <text id="mem-text" class="lbl-dim" x="360" y="168" text-anchor="middle">256 x 8</text>
+
+        <line id="w-mosi" class="wire" x1="0" y1="65" x2="38" y2="65" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="4" y="58">MOSI</text>
+        <line id="w-miso" class="wire" x1="38" y1="95" x2="0" y2="95" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="4" y="112">MISO</text>
+        <line id="w-ssn" class="wire" x1="0" y1="130" x2="38" y2="130" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="0" y="123">SS_n</text>
+
+        <line id="w-rxdata" class="wire" x1="212" y1="65" x2="278" y2="65" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="214" y="58">rx_data</text>
+        <line id="w-rxvalid" class="wire" x1="212" y1="95" x2="278" y2="95" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="214" y="88">rx_valid</text>
+        <line id="w-txdata" class="wire" x1="278" y1="125" x2="212" y2="125" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="214" y="118">tx_data</text>
+        <line id="w-txvalid" class="wire" x1="278" y1="155" x2="212" y2="155" marker-end="url(#h1)"/>
+        <text class="lbl-dim" x="214" y="148">tx_valid</text>
+
+        <defs>
+          <marker id="h1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6"/>
+          </marker>
+        </defs>
+      </svg>
+
+      <div class="regs">
+        <div><span>SS_n</span><b id="reg-ssn">1</b></div>
+        <div><span>MOSI stream sent</span><b id="reg-mosi">—</b></div>
+        <div><span>w_add / r_add</span><b id="reg-add">— / —</b></div>
+        <div><span>MISO out</span><b id="reg-miso">—</b></div>
+      </div>
+
+      <h2 style="margin-top:20px">Transaction log</h2>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="panel">
+      <h2>1. Choose a command</h2>
+      <div class="cmd-grid" id="cmd-grid">
+        <button class="cmd-btn" data-cmd="00"><span class="code">00</span><span class="name">Write address</span></button>
+        <button class="cmd-btn" data-cmd="01"><span class="code">01</span><span class="name">Write data</span></button>
+        <button class="cmd-btn" data-cmd="10"><span class="code">10</span><span class="name">Read address</span></button>
+        <button class="cmd-btn" data-cmd="11"><span class="code">11</span><span class="name">Read data</span></button>
+      </div>
+
+      <h2>2. Value (0–255)</h2>
+      <div class="field-row">
+        <label>Byte</label>
+        <input type="number" id="val-input" min="0" max="255" value="15">
+      </div>
+      <div class="stream" id="stream-preview">MOSI would carry: 00 00001111</div>
+
+      <button class="send-btn" id="send-btn" style="margin-top:16px">Send transaction</button>
+
+      <h2 style="margin-top:24px">RAM contents (0x00–0xFF)</h2>
+      <div class="ram-grid" id="ram-grid"></div>
+      <p class="ram-note">Highlighted cell = last address written or read.</p>
+    </div>
+  </div>
+
+  <footer>Behavior mirrors the SPI + RAM Verilog FSM: 2-bit command, 8-bit address or data, MSB-first, one full transaction per send.</footer>
+</div>
+
+<script>
+const mem = new Uint8Array(256);
+let wAdd = 0, rAdd = 0, flagWrite = false, flagRead = false, lastTouched = null;
+let selectedCmd = "00";
+
+const cmdNames = {"00":"Write address","01":"Write data","10":"Read address","11":"Read data"};
+const cmdGrid = document.getElementById('cmd-grid');
+const valInput = document.getElementById('val-input');
+const streamPreview = document.getElementById('stream-preview');
+const logEl = document.getElementById('log');
+const ramGrid = document.getElementById('ram-grid');
+
+function hex(n){ return '0x' + n.toString(16).padStart(2,'0').toUpperCase(); }
+function bin(n){ return n.toString(2).padStart(8,'0'); }
+
+function buildRamGrid(){
+  ramGrid.innerHTML = '';
+  for(let i=0;i<256;i++){
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.id = 'cell-'+i;
+    c.textContent = mem[i].toString(16).padStart(2,'0');
+    ramGrid.appendChild(c);
+  }
+}
+buildRamGrid();
+
+function updatePreview(){
+  const v = Math.max(0, Math.min(255, parseInt(valInput.value || 0, 10)));
+  streamPreview.textContent = selectedCmd === "11"
+    ? `MOSI would carry: 11 (address already latched — no byte needed)`
+    : `MOSI would carry: ${selectedCmd} ${bin(v)}`;
+}
+
+cmdGrid.querySelectorAll('.cmd-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    cmdGrid.querySelectorAll('.cmd-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedCmd = btn.dataset.cmd;
+    valInput.disabled = selectedCmd === "11";
+    updatePreview();
+  });
+});
+cmdGrid.querySelector('[data-cmd="00"]').classList.add('selected');
+valInput.addEventListener('input', updatePreview);
+updatePreview();
+
+function flashWires(ids){
+  ids.forEach(id=>document.getElementById(id).classList.add('active'));
+  setTimeout(()=> ids.forEach(id=>document.getElementById(id).classList.remove('active')), 600);
+}
+
+function addLog(text){
+  const line = document.createElement('div');
+  line.className = 'entry';
+  const t = document.createElement('span');
+  t.className = 't';
+  t.textContent = '> ';
+  line.appendChild(t);
+  line.appendChild(document.createTextNode(text));
+  logEl.prepend(line);
+}
+
+function touchCell(addr){
+  if(lastTouched !== null) document.getElementById('cell-'+lastTouched).classList.remove('hit');
+  document.getElementById('cell-'+addr).classList.add('hit');
+  document.getElementById('cell-'+addr).textContent = mem[addr].toString(16).padStart(2,'0');
+  lastTouched = addr;
+}
+
+document.getElementById('send-btn').addEventListener('click', ()=>{
+  const v = Math.max(0, Math.min(255, parseInt(valInput.value || 0, 10)));
+  document.getElementById('reg-ssn').textContent = '0';
+  document.getElementById('reg-mosi').textContent = selectedCmd === "11" ? selectedCmd : `${selectedCmd} ${bin(v)}`;
+
+  if(selectedCmd === "00"){
+    wAdd = v; flagWrite = true;
+    document.getElementById('fsm-text').textContent = 'CHK_CMD → WRITE';
+    flashWires(['w-mosi','w-ssn']);
+    addLog(`Write address: w_add ← ${hex(v)}`);
+  } else if(selectedCmd === "01"){
+    document.getElementById('fsm-text').textContent = 'CHK_CMD → WRITE';
+    flashWires(['w-mosi','w-ssn','w-rxdata','w-rxvalid']);
+    if(flagWrite){
+      mem[wAdd] = v; flagWrite = false;
+      touchCell(wAdd);
+      addLog(`Write data: mem[${hex(wAdd)}] ← ${hex(v)}`);
+    } else {
+      addLog(`Write data ignored — send "Write address" first`);
+    }
+  } else if(selectedCmd === "10"){
+    rAdd = v; flagRead = true;
+    document.getElementById('fsm-text').textContent = 'CHK_CMD → READ_ADD';
+    flashWires(['w-mosi','w-ssn','w-rxdata','w-rxvalid']);
+    addLog(`Read address: r_add ← ${hex(v)}`);
+  } else if(selectedCmd === "11"){
+    document.getElementById('fsm-text').textContent = 'CHK_CMD → READ_DATA';
+    flashWires(['w-mosi','w-ssn','w-txdata','w-txvalid']);
+    if(flagRead){
+      const d = mem[rAdd]; flagRead = false;
+      touchCell(rAdd);
+      setTimeout(()=>{
+        flashWires(['w-miso']);
+        document.getElementById('reg-miso').textContent = `${hex(d)} (${bin(d)})`;
+        addLog(`Read data: MISO ← mem[${hex(rAdd)}] = ${hex(d)}`);
+      }, 650);
+    } else {
+      addLog(`Read data ignored — send "Read address" first`);
+    }
+  }
+
+  document.getElementById('reg-add').textContent = `${hex(wAdd)} / ${hex(rAdd)}`;
+  setTimeout(()=>{
+    document.getElementById('reg-ssn').textContent = '1';
+    document.getElementById('fsm-text').textContent = 'IDLE';
+  }, 750);
+});
+</script>
+</body>
+</html>
